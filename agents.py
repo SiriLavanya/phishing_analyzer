@@ -1,27 +1,40 @@
-# agents.py
+from crewai import Agent
+#from utils_folder.llm_loader import get_llm
 
-def domain_agent(email_data):
-    from tools.email_tools import run_domain_check  # Import inside the function
-    """Agent for checking the sender's domain reputation."""
-    domain_result = run_domain_check(email_data['from'])
-    return domain_result
+llm = get_llm()
 
+domain_agent = Agent(
+    role="Domain Analyst",
+    goal="Validate the sender's domain, check DNS records and WHOIS data",
+    backstory="You specialize in identifying newly registered or suspicious domains used in phishing.",
+    verbose=True,
+    allow_delegation=False,
+    #llm=llm
+)
 
-def url_agent(email_data):
-    from tools.email_tools import extract_and_scan_urls  # Import inside the function
-    """Agent for extracting and scanning URLs in the email."""
-    url_result = extract_and_scan_urls(email_data['raw_message'])
-    return url_result
+url_agent = Agent(
+    role="URL Reputation Checker",
+    goal="Scan and assess the URLs for phishing using VirusTotal",
+    backstory="You're an expert in recognizing malicious links often embedded in phishing emails.",
+    verbose=True,
+    allow_delegation=False,
+    #llm=llm
+)
 
+content_agent = Agent(
+    role="Email Content Analyst",
+    goal="Analyze the content and context of the email to detect phishing attempts",
+    backstory="You're trained in identifying phishing characteristics in email language and formatting.",
+    verbose=True,
+    allow_delegation=False,
+    #llm=llm
+)
 
-def content_agent(email_data):
-    from tools.email_tools import analyze_email_body  # Import inside the function
-    """Agent for analyzing email content for phishing risk."""
-    content_result = analyze_email_body(
-        body=email_data['body'],
-        sender=email_data['from'],
-        urls=extract_urls(email_data['raw_message']),
-        domain_info=run_domain_check(email_data['from']),
-        attachments=email_data['attachments']
-    )
-    return content_result
+attachment_agent = Agent(
+    role="Attachment Scanner",
+    goal="Hash and analyze file attachments for malware",
+    backstory="You help identify harmful attachments by hashing and referencing threat databases.",
+    verbose=True,
+    allow_delegation=False,
+    #llm=llm
+)

@@ -1,61 +1,37 @@
-from utils.email_parser import parse_eml_file
-from tools.email_tools import (
-    domain_check_tool,
-    url_check_tool,
-    content_check_tool,
-    attachment_hash_tool
+from crewai import Crew
+from tasks import domain_task, url_task, attach_task, content_task
+from utils import parse_eml_file
+
+# Step 1: Load and parse the .eml file
+eml_path = 'uploads/sample.eml'  # <-- Change path as needed
+email_data = parse_eml_file(eml_path)
+
+sender = email_data["from"]
+subject = email_data["subject"]
+body = email_data["body"]
+attachments = email_data["attachments"]
+raw_email = email_data["raw_message"]
+
+# Step 2: Store intermediate results
+context = {
+    "sender": sender,
+    "body": body,
+    "attachments": attachments,
+    "raw_email": raw_email
+}
+
+# Step 3: Initialize Crew
+crew = Crew(
+    agents=[domain_task.agent, url_task.agent, attach_task.agent, content_task.agent],
+    tasks=[domain_task, url_task, attach_task, content_task],
+    verbose=True
 )
-from crewai import Task, Crew
-from agents import domain_agent, url_agent, content_agent
-# Instantiate the tools
-domain_check_tool = DomainCheckTool()
-url_check_tool = URLCheckTool()
-content_check_tool = ContentCheckTool()
-attachment_hash_tool = AttachmentHashTool()
-def run_analysis(eml_path):
-    email_data = parse_eml_file(eml_path)
 
-    # Convert raw email object to string for context
-    raw_email_str = email_data["raw_message"].as_string()
+# Step 4: Provide context (as inputs) to agents and run
+print("🔍 Starting phishing email analysis...\n")
 
-    # Create tasks
-    domain_task = Task(
-        description=f"Check sender: {email_data['from']}",
-        agent=domain_agent,
-        tools=[domain_check_tool],
-        expected_output="Domain reputation and legitimacy",
-        context=[f"Sender email: {email_data['from']}"]
-    )
+# Use the kickoff method to start the crew's execution
+results = crew.kickoff(inputs=context)
 
-    url_task = Task(
-        description=f"Extract and scan URLs in email from {email_data['from']}",
-        agent=url_agent,
-        tools=[url_check_tool],
-        expected_output="URL extraction and VirusTotal scan results",
-        context=[f"Raw email content: {raw_email_str}"]
-    )
-
-    content_task = Task(
-        description=f"Analyze phishing tone in email from {email_data['from']}",
-        agent=content_agent,
-        tools=[content_check_tool],
-        expected_output="Phishing risk evaluation using Gemini LLM",
-        context=[
-            f"Email body: {email_data['body']}",
-            f"Sender: {email_data['from']}",
-            f"Raw email content: {raw_email_str}",
-            f"Attachments: {email_data['attachments']}"
-        ]
-    )
-
-    # Run the tasks as a crew
-    crew = Crew(tasks=[domain_task, url_task, content_task])
-    results = crew.run()
-
-    # Print each result
-    for r in results:
-        print(r)
-
-# ENTRY POINT
-if __name__ == "__main__":
-    run_analysis(r"C:\Users\siril\OneDrive\Desktop\phishing_email_analyzer\uploads\sample.eml")
+print("\n✅ Final Phishing Verdict:")
+print(results)
